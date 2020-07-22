@@ -60,6 +60,7 @@ def setup_args():
 	parser.add_argument('-eu', '--elasticsearch_url', metavar='<elasticsearch_url>', type=str, help='ElasticSearch URL/IP. Eg: test.elk.com...')
 	parser.add_argument('-ep', '--elasticsearch_port', metavar='<elasticsearch_port>', type=str, help='ElasticSearch Port. Eg: 80')
 	parser.add_argument('-ei', '--elasticsearch_index', metavar='<elasticsearch_index>', type=str, help='ElasticSearch index / index pattern to read elastalert healthcheck statistics from. Eg: elastalert_index, elastalert_index*')
+	parser.add_argument('-ert', '--elasticsearch_request_timeout', metavar='<elasticsearch_request_timeout>', type=int, default=30, help='ElasticSearch request timeout in seconds. Eg: 30')
 	parser.add_argument('-swh', '--slack_web_hook', metavar='<slack_web_hook>', type=str, help='Slack webhook goes in it. Eg: https://hook.....')
 	parser.add_argument('-hp', '--heatlhcheck_period', metavar='<heatlhcheck_period>', default='now-30m', type=str, help='Health check period. Eg: now-30m')
 	logger.info('Successfully parsed arguments...')
@@ -80,11 +81,11 @@ def send_slack_message(slack_client, text, slack_message_attachments=list()):
 	logger.info('Message posted to Slack successfully...')
 
 
-def get_health_check_results(es_client, es_query, elastalert_index):
+def get_health_check_results(es_client, es_query, elastalert_index, request_timeout=30):
 	ea_is_running = False
 	total_hits = None
 	try:
-		res = es_client.search(index=elastalert_index, body=es_query)
+		res = es_client.search(index=elastalert_index, body=es_query, request_timeout=request_timeout)
 		if 'hits' in res and res.get('hits').get('total') > 0:
 			total_hits = res.get('hits').get('total')
 			ea_is_running = True
@@ -107,7 +108,8 @@ def main():
 		ea_is_running, total_hits = get_health_check_results(
 			es_client,
 			update_esquery(es_query.get('healthcheck_query')),
-			args.elasticsearch_index
+			args.elasticsearch_index,
+			args.elasticsearch_request_timeout
 		)
 		logger.info('Health check results obtained...')
 		if ea_is_running:
